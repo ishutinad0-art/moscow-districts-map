@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Библиотека для парсинга CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+    <div id="map" style="height: 600px;"></div>
+    <script>
+        // 1. Инициализация карты
+        const map = L.map('map').setView([55.76, 37.64], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // 2. Ссылка на вашу опубликованную таблицу
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/ВАШ_ID/.../pub?output=csv';
+
+        // 3. Загрузка данных
+        fetch(CSV_URL)
+            .then(response => response.text())
+            .then(csvText => {
+                const data = Papa.parse(csvText, { header: true }).data;
+                
+                // 4. Для каждой строки создаём объект на карте
+                data.forEach(row => {
+                    // Если есть координаты в формате [lat, lng] — создаём маркер
+                    if (row.lat && row.lng) {
+                        L.marker([row.lat, row.lng])
+                            .bindPopup(row.name)
+                            .addTo(map);
+                    }
+                    
+                    // Если есть GeoJSON-геометрия — рисуем полигон
+                    if (row.geometry) {
+                        const geojson = JSON.parse(row.geometry);
+                        const style = {
+                            color: row.color || '#3388ff',
+                            fillColor: row.color || '#3388ff',
+                            fillOpacity: 0.6
+                        };
+                        L.geoJSON(geojson, { style })
+                            .bindPopup(row.name)
+                            .addTo(map);
+                    }
+                });
+            });
+    </script>
+</body>
+</html>
