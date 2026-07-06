@@ -24,9 +24,7 @@
     
     <script>
         const map = L.map('map').setView([55.76, 37.64], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQsodmn0YGSLfvdw17fThe8jFKYTd6ZYI68p8rQAwphZtx-iKPjbVldgdqOaYk8jBvv5IdBuNVy-Ynm/pub?gid=1122678898&single=true&output=csv';
 
