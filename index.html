@@ -1,12 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта округов Москвы</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        #map { height: 100vh; width: 100%; margin: 0; }
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
+        #map { height: 100vh; width: 100%; position: relative; }
         
         /* Скрываем атрибуцию OSM */
         .leaflet-control-attribution {
@@ -18,214 +22,373 @@
             position: absolute;
             bottom: 30px;
             right: 30px;
-            background: rgba(255,255,255,0.95);
+            background: rgba(255, 255, 255, 0.95);
             padding: 12px 16px;
             border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.25);
+            box-shadow: 0 2px 15px rgba(0,0,0,0.25);
             z-index: 1000;
             max-height: 70vh;
             overflow-y: auto;
-            font-size: 13px;
-            min-width: 160px;
+            min-width: 180px;
             border: 1px solid #ddd;
+            font-size: 13px;
         }
         .legend-title {
-            font-weight: 600;
+            font-weight: 700;
             font-size: 14px;
-            margin-bottom: 6px;
-            border-bottom: 1px solid #ddd;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #ddd;
             padding-bottom: 4px;
             text-align: center;
         }
         .legend-item {
             display: flex;
             align-items: center;
-            margin: 3px 0;
+            margin: 4px 0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: background 0.2s;
+        }
+        .legend-item:hover {
+            background: #f0f0f0;
         }
         .legend-color {
-            display: inline-block;
             width: 18px;
             height: 18px;
-            border: 1px solid #555;
             margin-right: 8px;
-            flex-shrink: 0;
             border-radius: 3px;
+            border: 1px solid #555;
+            flex-shrink: 0;
         }
         .legend-name {
-            font-size: 13px;
+            flex: 1;
+            font-weight: 500;
         }
         .legend-value {
-            margin-left: auto;
-            padding-left: 10px;
+            margin-left: 8px;
+            padding: 0 6px;
+            background: #f5f5f5;
+            border-radius: 10px;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 11px;
             color: #555;
+            min-width: 20px;
+            text-align: center;
         }
         
         /* Стиль для подписей на карте */
         .district-label {
-            background: rgba(255,255,255,0.85);
-            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.88);
+            padding: 4px 10px;
             border-radius: 4px;
             font-size: 12px;
             font-weight: 600;
-            border: 1px solid #333;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.15);
+            border: 1.5px solid #333;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             text-align: center;
             pointer-events: none;
             line-height: 1.3;
             white-space: nowrap;
+            transition: transform 0.2s;
         }
         .district-label .value {
             font-weight: 400;
-            font-size: 11px;
-            color: #555;
+            font-size: 10px;
+            color: #666;
             display: block;
+            margin-top: 1px;
         }
         
-        /* Стиль для всплывающих окон */
-        .custom-popup {
-            font-size: 14px;
+        /* Стиль для попапа */
+        .popup-content {
             text-align: center;
+            font-size: 14px;
         }
-        .custom-popup .popup-value {
-            font-size: 24px;
+        .popup-content .popup-name {
             font-weight: 700;
-            color: #333;
+            font-size: 16px;
+            color: #222;
+        }
+        .popup-content .popup-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #444;
+            margin: 4px 0;
+        }
+        .popup-content .popup-label {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        /* Индикатор загрузки */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.75);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 8px;
+            z-index: 2000;
+            font-size: 18px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        #loading .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Адаптив */
+        @media (max-width: 600px) {
+            .legend {
+                bottom: 10px;
+                right: 10px;
+                padding: 8px 12px;
+                min-width: 140px;
+                font-size: 11px;
+                max-height: 50vh;
+            }
+            .legend-title { font-size: 12px; }
+            .legend-color { width: 14px; height: 14px; }
+            .district-label { font-size: 10px; padding: 2px 6px; }
+            .district-label .value { font-size: 9px; }
         }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="legend" class="legend"></div>
+    <div id="map">
+        <div id="loading">
+            <span class="spinner"></span> Загрузка данных...
+        </div>
+    </div>
+    <div id="legend" class="legend" style="display:none;">
+        <div class="legend-title">Округа Москвы</div>
+        <div id="legend-list"></div>
+    </div>
     
     <script>
-        const map = L.map('map', {
-            center: [55.76, 37.64],
-            zoom: 10,
-            zoomControl: true
-        });
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        // ССЫЛКА НА ВАШУ GOOGLE ТАБЛИЦУ
-        // В таблице должны быть колонки: name, color, value, geometry (GeoJSON)
-        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQsodmn0YGSLfvdw17fThe8jFKYTd6ZYI68p8rQAwphZtx-iKPjbVldgdqOaYk8jBvv5IdBuNVy-Ynm/pub?gid=1122678898&single=true&output=csv';
-
-        fetch(CSV_URL)
-            .then(response => response.text())
-            .then(csvText => {
-                const data = Papa.parse(csvText, { header: true }).data;
-                const colors = {};
-                const legendHtml = ['<div class="legend-title">Округа Москвы</div>'];
-                const labels = [];
+        (function() {
+            // --- Инициализация карты ---
+            const map = L.map('map').setView([55.76, 37.64], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+            
+            // --- Ссылка на Google Таблицу ---
+            const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQsodmn0YGSLfvdw17fThe8jFKYTd6ZYI68p8rQAwphZtx-iKPjbVldgdqOaYk8jBvv5IdBuNVy-Ynm/pub?gid=1122678898&single=true&output=csv';
+            
+            // --- Цветовая схема по умолчанию (если не указано в данных) ---
+            const DEFAULT_COLORS = {
+                'Троицкий': '#FF6B6B',
+                'Новомосковский': '#4ECDC4',
+                'Зеленоградский': '#45B7D1',
+                'Юго-Западный': '#96CEB4',
+                'Юго-Восточный': '#FFEAA7',
+                'Центральный': '#DDA0DD',
+                'Северный': '#FFB347',
+                'Северо-Западный': '#87CEEB',
+                'Северо-Восточный': '#F08080',
+                'Южный': '#20B2AA',
+                'Восточный': '#D2B48C',
+                'Западный': '#BC8F8F'
+            };
+            
+            // --- Функция отрисовки карты ---
+            function drawMap(data, source) {
+                console.log(`Данные загружены из: ${source}`);
+                document.getElementById('loading').style.display = 'none';
                 
-                data.forEach(row => {
-                    // Пропускаем пустые строки и Украину
-                    if (!row.name || row.name === 'Украина' || row.name.trim() === '') return;
+                const features = data.features || data;
+                const legendList = document.getElementById('legend-list');
+                const legendHtml = [];
+                const bounds = [];
+                let drawnFeatures = 0;
+                
+                // Проверяем, есть ли данные
+                if (!features || features.length === 0) {
+                    document.getElementById('map').innerHTML = `
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:10px;box-shadow:0 0 30px rgba(0,0,0,0.3);text-align:center;z-index:1000;">
+                            <p style="color:red;font-size:18px;">❌ Нет данных для отображения</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                features.forEach((feature, index) => {
+                    // Получаем данные из разных источников
+                    let name = feature.properties?.name || feature.properties?.NAME || `Округ ${index + 1}`;
+                    let color = feature.properties?.color || DEFAULT_COLORS[name] || '#3388ff';
+                    let value = feature.properties?.value || '';
                     
-                    const name = row.name.trim();
-                    const color = row.color || '#3388ff';
-                    const value = row.value || '';
+                    // Если данные из GeoJSON, приводим к нужному формату
+                    const geometry = feature.geometry || feature;
                     
-                    // --- 1. РИСУЕМ ПОЛИГОН (границы) ---
-                    if (row.geometry && row.geometry.startsWith('{')) {
+                    try {
+                        const layer = L.geoJSON(feature, {
+                            style: {
+                                color: '#222',
+                                weight: 2.5,
+                                fillColor: color,
+                                fillOpacity: 0.75
+                            },
+                            onEachFeature: function(f, l) {
+                                // Всплывающее окно
+                                l.bindPopup(`
+                                    <div class="popup-content">
+                                        <div class="popup-name">${name}</div>
+                                        <div class="popup-value">${value}</div>
+                                        <div class="popup-label">${source === 'google' ? 'из таблицы' : 'из файла'}</div>
+                                    </div>
+                                `);
+                            }
+                        }).addTo(map);
+                        
+                        // Добавляем подпись в центре
                         try {
-                            const geojson = JSON.parse(row.geometry);
-                            
-                            const layer = L.geoJSON(geojson, {
-                                style: {
-                                    color: '#222',
-                                    weight: 2.5,
-                                    fillColor: color,
-                                    fillOpacity: 0.75
-                                }
-                            }).addTo(map);
-                            
-                            // Всплывающее окно с названием и цифрой
-                            const popupContent = `
-                                <div class="custom-popup">
-                                    <b>${name}</b><br>
-                                    <span class="popup-value">${value}</span>
-                                </div>
-                            `;
-                            layer.bindPopup(popupContent);
-                            
-                            // --- 2. ДОБАВЛЯЕМ ПОДПИСЬ В ЦЕНТРЕ ---
-                            try {
-                                const bounds = layer.getBounds();
-                                if (bounds.isValid()) {
-                                    const center = bounds.getCenter();
-                                    
-                                    const labelHtml = `
+                            const center = layer.getBounds().getCenter();
+                            if (center && center.lat && center.lng) {
+                                const labelIcon = L.divIcon({
+                                    className: 'label',
+                                    html: `
                                         <div class="district-label">
                                             ${name}
                                             <span class="value">${value}</span>
                                         </div>
-                                    `;
-                                    
-                                    const labelIcon = L.divIcon({
-                                        className: 'label',
-                                        html: labelHtml,
-                                        iconSize: [0, 0],
-                                        iconAnchor: [0, 0]
-                                    });
-                                    
-                                    L.marker(center, { icon: labelIcon, interactive: false })
-                                        .addTo(map);
-                                    
-                                    // Сохраняем данные для легенды
-                                    colors[name] = color;
-                                    labels.push({ name, color, value });
-                                }
-                            } catch(e) {
-                                console.warn('Не удалось добавить подпись для', name);
+                                    `,
+                                    iconSize: [0, 0],
+                                    iconAnchor: [0, 0]
+                                });
+                                L.marker(center, { icon: labelIcon, interactive: false })
+                                    .addTo(map);
+                                bounds.push(center);
                             }
-                            
                         } catch(e) {
-                            console.warn('Ошибка парсинга GeoJSON для', name, e);
+                            // Если не удалось найти центр — пропускаем
                         }
+                        
+                        // Добавляем в легенду
+                        legendHtml.push(`
+                            <div class="legend-item">
+                                <span class="legend-color" style="background:${color};"></span>
+                                <span class="legend-name">${name}</span>
+                                <span class="legend-value">${value}</span>
+                            </div>
+                        `);
+                        
+                        drawnFeatures++;
+                    } catch(e) {
+                        console.warn('Ошибка обработки объекта:', name, e);
                     }
                 });
                 
-                // --- 3. СТРОИМ ЛЕГЕНДУ ---
-                // Сортируем по названию
-                const sortedLabels = labels.sort((a, b) => a.name.localeCompare(b.name));
-                
-                sortedLabels.forEach(item => {
-                    legendHtml.push(`
-                        <div class="legend-item">
-                            <span class="legend-color" style="background:${item.color};"></span>
-                            <span class="legend-name">${item.name}</span>
-                            <span class="legend-value">${item.value}</span>
-                        </div>
-                    `);
-                });
-                
-                document.getElementById('legend').innerHTML = legendHtml.join('');
-                
-                // --- 4. ПОДГОНЯЕМ КАРТУ ПОД ГРАНИЦЫ ---
-                try {
-                    const allBounds = L.latLngBounds(
-                        labels.map(l => l.center).filter(c => c)
-                    );
-                    if (allBounds.isValid()) {
-                        map.fitBounds(allBounds, { padding: [30, 30] });
-                    }
-                } catch(e) {
-                    // Если не удалось — оставляем стандартный вид
+                // Показываем легенду
+                if (drawnFeatures > 0) {
+                    legendList.innerHTML = legendHtml.join('');
+                    document.getElementById('legend').style.display = 'block';
                 }
                 
-            })
-            .catch(error => {
-                console.error('Ошибка загрузки данных:', error);
-                document.getElementById('map').innerHTML = `
-                    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:10px;box-shadow:0 0 30px rgba(0,0,0,0.3);text-align:center;z-index:1000;">
-                        <p style="color:red;font-size:18px;">❌ Ошибка загрузки данных</p>
-                        <p style="font-size:14px;color:#666;">Проверьте консоль (F12) для деталей</p>
-                    </div>
-                `;
-            });
+                // Подгоняем карту под границы
+                if (bounds.length > 0) {
+                    try {
+                        const allBounds = L.latLngBounds(bounds);
+                        if (allBounds.isValid()) {
+                            map.fitBounds(allBounds, { padding: [30, 30] });
+                        }
+                    } catch(e) {
+                        // Если не удалось — оставляем стандартный вид
+                    }
+                }
+                
+                console.log(`Отображено ${drawnFeatures} объектов`);
+            }
+            
+            // --- Функция загрузки данных ---
+            function loadData() {
+                // Сначала пробуем загрузить из Google Таблицы
+                fetch(CSV_URL)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Таблица недоступна');
+                        return response.text();
+                    })
+                    .then(csvText => {
+                        const parsed = Papa.parse(csvText, { header: true });
+                        const data = parsed.data.filter(row => row.name && row.name.trim());
+                        
+                        if (data.length === 0) throw new Error('Таблица пуста');
+                        
+                        // Преобразуем данные из таблицы в GeoJSON
+                        const features = [];
+                        data.forEach(row => {
+                            if (row.geometry && row.geometry.startsWith('{')) {
+                                try {
+                                    const geometry = JSON.parse(row.geometry);
+                                    features.push({
+                                        type: 'Feature',
+                                        properties: {
+                                            name: row.name.trim(),
+                                            color: row.color || DEFAULT_COLORS[row.name.trim()] || '#3388ff',
+                                            value: row.value || ''
+                                        },
+                                        geometry: geometry
+                                    });
+                                } catch(e) {
+                                    console.warn('Ошибка парсинга GeoJSON для', row.name);
+                                }
+                            }
+                        });
+                        
+                        if (features.length === 0) throw new Error('В таблице нет GeoJSON-данных');
+                        
+                        drawMap(features, 'google');
+                    })
+                    .catch(error => {
+                        console.warn('Ошибка загрузки из Google:', error);
+                        console.log('Пробуем загрузить из файла districts.geojson...');
+                        
+                        // Если таблица не загрузилась — пробуем файл
+                        fetch('districts.geojson')
+                            .then(response => {
+                                if (!response.ok) throw new Error('Файл districts.geojson не найден');
+                                return response.json();
+                            })
+                            .then(geoData => {
+                                drawMap(geoData, 'file');
+                            })
+                            .catch(fileError => {
+                                console.error('Ошибка загрузки файла:', fileError);
+                                document.getElementById('loading').innerHTML = `
+                                    <div style="background:white;padding:20px;border-radius:8px;color:#333;">
+                                        <p style="color:red;font-size:16px;">❌ Не удалось загрузить данные</p>
+                                        <p style="font-size:13px;color:#666;margin-top:8px;">
+                                            Проверьте:<br>
+                                            1. Google Таблицу — она должна быть опубликована<br>
+                                            2. Файл districts.geojson — он должен лежать рядом
+                                        </p>
+                                        <button onclick="location.reload()" style="margin-top:12px;padding:8px 20px;background:#007bff;color:white;border:none;border-radius:4px;cursor:pointer;">
+                                            Обновить
+                                        </button>
+                                    </div>
+                                `;
+                            });
+                    });
+            }
+            
+            // --- Запускаем загрузку ---
+            loadData();
+            
+        })();
     </script>
 </body>
 </html>
