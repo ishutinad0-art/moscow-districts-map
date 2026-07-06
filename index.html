@@ -32,13 +32,6 @@
                 const legendHtml = ['<b>Округа Москвы</b>'];
                 
                 data.forEach(row => {
-                    // Если есть координаты — маркер
-                    if (row.lat && row.lng) {
-                        L.marker([parseFloat(row.lat), parseFloat(row.lng)])
-                            .bindPopup(row.name)
-                            .addTo(map);
-                    }
-                    
                     // Если есть полный GeoJSON — полигон
                     if (row.geometry && row.geometry.startsWith('{')) {
                         try {
